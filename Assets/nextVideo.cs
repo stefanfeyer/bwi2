@@ -14,7 +14,7 @@ public class nextVideo : MonoBehaviour
     int videoIndex;
     bool isButtonBlocked;
     bool waitFlag;
-    private AndroidJavaObject plugin;
+    
 
     //adb logcat -s Unity ActivityManager PackageManager dalvikvm DEBUG
 
@@ -42,6 +42,8 @@ public class nextVideo : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        // find video Player
+        UnityEngine.Video.VideoPlayer videoPlayer = GameObject.FindWithTag("VideoPlayer").GetComponent<UnityEngine.Video.VideoPlayer>();
         // if the big button on the controller is clicked
         if (GvrControllerInput.ClickButtonDown)
         {
@@ -60,7 +62,7 @@ public class nextVideo : MonoBehaviour
             if (!isButtonBlocked)
             {
                 //pauses the video
-                GameObject.Find("VideoPlayer").GetComponent<UnityEngine.Video.VideoPlayer>().Pause();
+                videoPlayer.Pause();
             }
         }
         // secondary button on controller to resume video when the button is released
@@ -69,7 +71,7 @@ public class nextVideo : MonoBehaviour
             if (!isButtonBlocked)
             {
                 //plays the video again
-                GameObject.Find("VideoPlayer").GetComponent<UnityEngine.Video.VideoPlayer>().Play();
+                videoPlayer.Play();
             }
         }
         // debugging if running on pc, press right arrow to switch video
@@ -79,19 +81,27 @@ public class nextVideo : MonoBehaviour
             StartCoroutine(PlayVideoAndFadeAlpha());
         }
         //starting from here ist to automatically play the next video if the current video is up to end
-        UnityEngine.Video.VideoPlayer videoPlayer = GameObject.Find("VideoPlayer").GetComponent<UnityEngine.Video.VideoPlayer>();
         long currentFrame = videoPlayer.frame;
         long totalFrames = (long)videoPlayer.frameCount;
 
-        //detect if the video is about to end:
-        if (currentFrame > 500 && totalFrames-40 == currentFrame && videoPlayer.isPlaying && !waitFlag)
+        //maybe an indexOutOfBounds
+        try { 
+            //detect if the video is about to end:
+            if (currentFrame > 500 && totalFrames-60 == currentFrame && videoPlayer.isPlaying && !waitFlag)
+            {
+                waitFlag = true;
+                isButtonBlocked = true;
+                //play the next video
+                StartCoroutine(PlayVideoAndFadeAlpha());
+            }
+        }
+        catch
         {
-            waitFlag = true;
-            isButtonBlocked = true;
-            //play the next video
+            //play next video anyway
             StartCoroutine(PlayVideoAndFadeAlpha());
         }
-        
+
+
 
     }
 
@@ -105,7 +115,7 @@ public class nextVideo : MonoBehaviour
         float alpha = 0.0f;
 
         //get the video player component
-        UnityEngine.Video.VideoPlayer videoPlayer = GameObject.Find("VideoPlayer").GetComponent<UnityEngine.Video.VideoPlayer>();
+        UnityEngine.Video.VideoPlayer videoPlayer = GameObject.FindWithTag("VideoPlayer").GetComponent<UnityEngine.Video.VideoPlayer>();
 
         //the actual fade
         while (alpha < 1.0f)
@@ -143,11 +153,26 @@ public class nextVideo : MonoBehaviour
         //only 3 videos
         videoIndex = videoIndex % 3;
         //load the video
-        videoPlayer.Prepare();
-        // wait for the video to be prepared
-        while (!videoPlayer.isPrepared)
+        Retry:
+        try
         {
-            yield return null;
+            videoPlayer.Prepare();
+            // wait for the video to be prepared, but only 90 frames long. after that, sth must have been wrong, so lets retry. Also lets retry when there is an exception.
+            int framesTillRetry = 90;
+            while (!videoPlayer.isPrepared)
+            {
+                if(framesTillRetry <= 0)
+                {
+                    break;
+                    goto Retry;
+                }
+                framesTillRetry--;
+                //yield return null;
+            }
+        }
+        catch
+        {
+            goto Retry;
         }
         //video is loaded, so play it
         videoPlayer.Play();
@@ -159,7 +184,7 @@ public class nextVideo : MonoBehaviour
             // Reduce alpha by fadeSpeed amount.
             alpha -= fadeSpeed * Time.deltaTime;
             //change alpha value
-            material.color = new Color(material.color.r, material.color.g, material.color.b, alpha)
+            material.color = new Color(material.color.r, material.color.g, material.color.b, alpha);
             yield return null;
         }
         //after fading is done, make the text transparent
