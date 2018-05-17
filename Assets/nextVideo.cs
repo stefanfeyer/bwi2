@@ -98,6 +98,8 @@ public class nextVideo : MonoBehaviour
         catch
         {
             //play next video anyway
+            waitFlag = true;
+            isButtonBlocked = true;
             StartCoroutine(PlayVideoAndFadeAlpha());
         }
 
@@ -164,11 +166,11 @@ public class nextVideo : MonoBehaviour
                 if(framesTillRetry <= 0)
                 {
                     break;
-                    goto Retry;
                 }
                 framesTillRetry--;
                 //yield return null;
             }
+            goto Retry;
         }
         catch
         {
